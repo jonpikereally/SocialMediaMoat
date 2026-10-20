@@ -1,0 +1,5 @@
+{
+  "version": "1.0.0",
+  "url": "SocialMediaMoat.zip",
+  "notes": "First release: hides X posts from accounts based outside the countries you pick, using X's own \"Account based in\" info."
+}
