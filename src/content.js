@@ -28,6 +28,8 @@
   const queue = new Set();        // handles waiting for an X lookup
   const failedAt = new Map();     // handle → time of last failed lookup
   const revealed = new Set();     // posts the user clicked "Show" on, this tab only
+  let follows = new Map();        // handle → true, for the signed-in account (see src/page.js)
+  let followsViewer = null;
   const reported = new Set();
 
   function report(code, details) {
@@ -69,6 +71,13 @@
     return m ? m[1] : null;
   }
 
+  // The signed-in account's id (twid cookie "u=123"), so follows from one account
+  // never whitelist posts for another account signed in to the same browser.
+  function viewer() {
+    try { return /^u=(\d+)$/.exec(decodeURIComponent(/(?:^|;\s*)twid=([^;]*)/.exec(document.cookie)?.[1] || ""))?.[1] || null; } catch { return null; }
+  }
+  const isFollowed = (h) => follows.get(h) === true;
+
   // On someone's profile or one of their posts, their own posts are never hidden.
   const pageOwner = () => location.pathname.split("/")[1] || null;
 
@@ -103,7 +112,7 @@
     if (rh) want(rh);
     const cell = article.closest('[data-testid="cellInnerDiv"]') || article.parentElement;
     const id = postId(article) || h;
-    let { v, by } = decidePost(h, rh, (x) => mem.get(x), settings, { own: ownHandle(), pageOwner: pageOwner() });
+    let { v, by } = decidePost(h, rh, (x) => mem.get(x), settings, { own: ownHandle(), pageOwner: pageOwner(), follows: isFollowed });
     if (v === "hide" && revealed.has(id)) v = "show";
     tag(article.querySelector('[data-testid="User-Name"]'), h);
     const context = article.querySelector('[data-testid="socialContext"]');
@@ -197,14 +206,17 @@
     pump();
   }
 
-  // Prefer accounts whose posts are on screen right now.
+  // Prefer accounts whose posts are on screen right now. Accounts you follow are
+  // shown anyway (when that setting is on), so they're only looked up for their tag, last.
   function next() {
+    const later = (h) => settings.showFollowed && isFollowed(h);
     for (const article of document.querySelectorAll('article[data-testid="tweet"]')) {
       const r = article.getBoundingClientRect();
       if (r.bottom < 0 || r.top > innerHeight) continue;
       const h = norm(handleOf(article));
-      if (queue.has(h)) return h;
+      if (queue.has(h) && !later(h)) return h;
     }
+    for (const h of queue) if (!later(h)) return h;
     return queue.values().next().value;
   }
 
@@ -297,6 +309,8 @@
     const user = data?.data?.user_result_by_screen_name?.result;
     const back = user?.core?.screen_name;
     if (back && norm(back) !== h) { failedAt.set(h, Date.now()); return; }
+    const f = user?.relationship_perspectives?.following ?? user?.legacy?.following;
+    if (typeof f === "boolean") learnFollows([[h, f]]);
     const rec = { c: user?.about_profile?.account_based_in || null, t: Date.now() };
     mem.set(h, rec);
     try {
@@ -322,11 +336,58 @@
     return false;
   }
 
+  // ---------- accounts you follow ----------
+
+  // Unsaved changes are kept apart so a save from another tab can't drop them.
+  const addQ = new Set(), delQ = new Set();
+  let followsTimer = null;
+
+  function learnFollows(users) {
+    const me = viewer();
+    if (!me) return;
+    if (followsViewer !== me) { follows = new Map(); followsViewer = me; addQ.clear(); delQ.clear(); }
+    let changed = false;
+    for (const [h, f] of users) {
+      if (typeof h !== "string" || typeof f !== "boolean") continue;
+      if (f && !follows.has(h)) { follows.set(h, true); addQ.add(h); delQ.delete(h); changed = true; }
+      else if (!f && follows.delete(h)) { delQ.add(h); addQ.delete(h); changed = true; }
+    }
+    if (!changed) return;
+    scan();
+    clearTimeout(followsTimer);
+    followsTimer = setTimeout(saveFollows, 1000);
+  }
+
+  async function saveFollows() {
+    const me = followsViewer;
+    try {
+      const { follows: saved } = await chrome.storage.local.get("follows");
+      const f = saved?.viewer === me ? { ...saved.f } : {};
+      for (const h of addQ) f[h] = 1;
+      for (const h of delQ) delete f[h];
+      addQ.clear();
+      delQ.clear();
+      await chrome.storage.local.set({ follows: { viewer: me, f } });
+    } catch (e) {
+      report(/quota/i.test(e.message) ? "SM-302" : "SM-301", e.stack || e);
+    }
+  }
+
+  function loadFollows(saved) {
+    const me = viewer();
+    if (me !== followsViewer) { addQ.clear(); delQ.clear(); }
+    followsViewer = me;
+    follows = new Map(saved && saved.viewer === me ? Object.keys(saved.f || {}).map((h) => [h, true]) : []);
+    for (const h of addQ) follows.set(h, true);
+    for (const h of delQ) follows.delete(h);
+  }
+
   // ---------- start ----------
 
   async function start() {
     try {
-      const got = await chrome.storage.local.get(["settings", "rl", "qid"]);
+      const got = await chrome.storage.local.get(["settings", "rl", "qid", "follows"]);
+      loadFollows(got.follows);
       settings = { ...DEFAULTS, ...(got.settings || {}) };
       rlUntil = got.rl || 0;
       qid = settings.queryId || got.qid || DEFAULT_QID;
@@ -344,6 +405,10 @@
           settings = { ...DEFAULTS, ...(newValue || {}) };
           if (settings.queryId) qid = settings.queryId;
           dirty = true;
+        } else if (k === "follows") {
+          // Another tab learned some, or the popup cleared them.
+          loadFollows(newValue);
+          dirty = true;
         } else if (k === "rl") {
           rlUntil = newValue || 0;
         } else if (k === "qid" && newValue && !settings.queryId) {
@@ -358,6 +423,13 @@
       }
       if (dirty) { scan(); pump(); }
     });
+
+    // Follow flags from src/page.js, which sees X's own API answers.
+    addEventListener("message", (e) => {
+      if (e.source !== window || e.origin !== location.origin || e.data?.source !== "smm-follows") return;
+      if (Array.isArray(e.data.users)) learnFollows(e.data.users.slice(0, 2000));
+    });
+    window.postMessage({ source: "smm-ready" }, location.origin);
 
     let frame = 0;
     new MutationObserver((muts) => {

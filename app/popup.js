@@ -139,6 +139,11 @@ async function render() {
   }
   $("#showTags").checked = settings.showTags;
   $("#hideReposts").checked = settings.hideReposts;
+  $("#showFollowed").checked = settings.showFollowed;
+  const nFollows = Object.keys(store.follows?.f || {}).length;
+  $("#followNote").textContent = nFollows
+    ? `Knows you follow ${nFollows.toLocaleString()} account${nFollows === 1 ? "" : "s"} so far. It learns as you browse X, from posts and profiles you see.`
+    : "It learns who you follow as you browse X. To teach it quickly, scroll through your own Following list (your profile → Following).";
   if (document.activeElement !== $("#allow")) $("#allow").value = settings.allow.map((h) => "@" + h).join("\n");
   $("#updateSource").value = settings.updateSource || "";
   $("#queryId").value = settings.queryId || "";
@@ -160,6 +165,7 @@ for (const name of ["mode", "unknown", "hideStyle"]) {
 }
 $("#showTags").onchange = (e) => save({ showTags: e.target.checked });
 $("#hideReposts").onchange = (e) => save({ hideReposts: e.target.checked });
+$("#showFollowed").onchange = (e) => save({ showFollowed: e.target.checked });
 $("#allow").onchange = (e) => save({ allow: [...new Set(e.target.value.split(/[\s,]+/).map(norm).filter(Boolean))] });
 $("#updateSource").onchange = (e) => save({ updateSource: e.target.value.trim() });
 $("#queryId").onchange = (e) => save({ queryId: e.target.value.trim() });

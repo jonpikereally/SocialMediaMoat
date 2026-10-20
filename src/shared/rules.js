@@ -9,6 +9,7 @@
     hideStyle: "bar",      // "bar": a thin "Hidden post" strip · "remove": gone entirely
     showTags: true,        // country tag next to each name
     hideReposts: false,    // also hide reposts made by accounts that would be hidden
+    showFollowed: true,    // never hide accounts I follow
     allow: [],             // handles always shown
     queryId: "",           // advanced override for X's AboutAccountQuery id
     updateSource: "",
@@ -24,6 +25,7 @@
     const h = norm(handle);
     if (h && (h === norm(ctx.own) || h === norm(ctx.pageOwner))) return "show";
     if (s.allow.some((a) => norm(a) === h)) return "show";
+    if (s.showFollowed && ctx.follows && ctx.follows(h)) return "show";
     if (!record) return "pending";
     if (!record.c) return s.unknown === "hide" ? "hide" : "show";
     const listed = s.countries.some((c) => norm(c) === norm(record.c));
