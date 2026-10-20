@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "url": "SocialMediaMoat.zip",
-  "notes": "First release: hides X posts from accounts based outside the countries you pick, using X's own \"Account based in\" info."
+  "notes": "New setting: Also hide reposts by filtered accounts. When on, a repost is hidden if the account that reposted it is from a filtered country, not just the post's author. The reposter's country also shows on the \"reposted\" line."
 }
