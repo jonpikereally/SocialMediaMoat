@@ -63,6 +63,8 @@ READING THE PAGE (never rely on X's generated class names)
   [data-testid="User-Name"] whose href is exactly "/<handle>" (1-15 letters, digits or underscores).
   Quoted posts sit later in the same article, so the first match is the real author.
 - The element to hide is the post's closest [data-testid="cellInnerDiv"].
+- A repost has a "<name> reposted" line: [data-testid="socialContext"] inside a link to the reposter's
+  profile ("Pinned" uses the same testid without a link).
 - The post id is in the link around the post's <time> element (/status/<digits>).
 - My own handle is the href of a[data-testid="AppTabBar_Profile_Link"].
 - Watch for new posts with a MutationObserver, batched with requestAnimationFrame. Every DOM write must be
@@ -74,6 +76,8 @@ FILTER RULES (put these in one pure function so they can be unit tested)
   my list. Compare country names ignoring case and surrounding spaces.
 - Never hide: my own posts, posts by the account whose profile or post page I'm on (first path segment
   of the URL), and handles in an "always show" list (accept "@name" or "name", any case).
+- Reposts are judged by the post's author. A setting "Also hide reposts by filtered accounts" (off by
+  default) also hides a repost when the reposter would be hidden; only look reposters up when it's on.
 - Accounts with no country: follow the "no country" setting (show by default).
 - Not checked yet: show.
 
@@ -96,14 +100,14 @@ THE POPUP (about 380 px wide, light and dark mode)
   must match X's label exactly (that's how regions such as "Europe" work).
 - "Seen on X": every country in the cache with its account count and a Shown/Hidden pill. Clicking a row
   adds it to or removes it from my list.
-- Settings: what to do with accounts that show no country, hide style, country pills on/off,
+- Settings: what to do with accounts that show no country, hide style, the repost toggle, country pills on/off,
   "always show" accounts (one @handle per line), how many accounts are remembered with a
   "Forget looked-up countries" button, the query id override, and the update section below.
 - Settings changes apply to open X tabs immediately (listen to chrome.storage.onChanged).
 
 SETTINGS (chrome.storage.local "settings", with these defaults)
   enabled: true, mode: "only", countries: ["Canada"], unknown: "show", hideStyle: "bar",
-  showTags: true, allow: [], queryId: "", updateSource: ""
+  showTags: true, hideReposts: false, allow: [], queryId: "", updateSource: ""
 
 FLAGS
 Include a table of about 200 country names (in X's English spelling, plus common alternatives such as
