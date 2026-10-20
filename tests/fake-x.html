@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fake X timeline</title>
+<link rel="stylesheet" href="../src/content.css">
+<style>
+  body { margin: 0; font: 15px/1.4 -apple-system, system-ui, sans-serif; background: #000; color: #e7e9ea; }
+  .wrap { display: grid; grid-template-columns: 1fr 300px; max-width: 980px; margin: 0 auto; gap: 20px; }
+  main { border-inline: 1px solid #2f3336; }
+  article { display: block; padding: 12px 16px; border-bottom: 1px solid #2f3336; }
+  [data-testid="User-Name"] { display: flex; gap: 4px; align-items: center; }
+  [data-testid="User-Name"] a { color: inherit; text-decoration: none; }
+  [data-testid="User-Name"] div:first-child { font-weight: 700; }
+  [data-testid="User-Name"] div + div, time { color: #71767b; }
+  .quote { border: 1px solid #2f3336; border-radius: 12px; padding: 8px 12px; margin-top: 8px; }
+  aside { position: sticky; top: 0; align-self: start; padding: 12px; font-size: 13px; }
+  aside button, aside select, aside input { font: inherit; margin: 2px 0; }
+  #log { white-space: pre-wrap; font: 11px/1.3 ui-monospace, monospace; color: #8b98a5; max-height: 300px; overflow: auto; }
+</style>
+</head>
+<body>
+<!-- Test page for src/content.js: mimics x.com's markup and mocks the chrome.* APIs
+     and X's AboutAccountQuery endpoint. Serve over http (see README). -->
+<a data-testid="AppTabBar_Profile_Link" href="/me" hidden>Profile</a>
+<div class="wrap">
+  <main id="timeline"></main>
+  <aside>
+    <b>Test controls</b><br>
+    Mode <select id="mode"><option value="only">only</option><option value="hide">hide</option></select><br>
+    Countries <input id="countries" value="Canada"><br>
+    Unknown <select id="unknown"><option>show</option><option>hide</option></select><br>
+    Style <select id="hideStyle"><option>bar</option><option>remove</option></select><br>
+    <label><input type="checkbox" id="enabled" checked> enabled</label>
+    <label><input type="checkbox" id="showTags" checked> tags</label><br>
+    <button id="apply">Apply settings</button>
+    <button id="more">Load 5 more posts</button><br>
+    <label><input type="checkbox" id="rate"> X answers 429 (rate limit)</label><br>
+    <label><input type="checkbox" id="badQid"> X answers 404 (query renamed)</label><br>
+    <label><input type="checkbox" id="signedOut"> X answers 403 (signed out)</label><br>
+    <div id="stats"></div>
+    <div id="log"></div>
+  </aside>
+</div>
+<script>
+  // ---------- mocks ----------
+  const COUNTRY = {
+    jon_pike: "Canada", torontostar: "Canada", cbcnews: "Canada", nytimes: "United States",
+    elonmusk: "United States", bbcnews: "United Kingdom", lemondefr: "France", nhk_news: "Japan",
+    privacyfan: null, eurouser: "Europe", me: "Canada", spiegel: "Germany", aussie: "Australia",
+  };
+  const store = {};
+  const listeners = [];
+  const log = (s) => { const el = document.getElementById("log"); el.textContent = `${new Date().toLocaleTimeString()} ${s}\n` + el.textContent; };
+  const pick = (keys) => keys == null ? { ...store } : Object.fromEntries([].concat(keys).filter((k) => k in store).map((k) => [k, structuredClone(store[k])]));
+  window.chrome = {
+    storage: {
+      local: {
+        get: async (k) => pick(typeof k === "string" ? [k] : k),
+        set: async (o) => {
+          const changes = {};
+          for (const [k, v] of Object.entries(o)) { changes[k] = { oldValue: store[k], newValue: structuredClone(v) }; store[k] = structuredClone(v); }
+          listeners.forEach((f) => f(changes, "local"));
+        },
+        remove: async (keys) => {
+          const changes = {};
+          for (const k of [].concat(keys)) { changes[k] = { oldValue: store[k] }; delete store[k]; }
+          listeners.forEach((f) => f(changes, "local"));
+        },
+      },
+      onChanged: { addListener: (f) => listeners.push(f) },
+    },
+    runtime: {
+      sendMessage: async (m) => {
+        if (m.type === "tabStatus") document.getElementById("stats").textContent = `hidden ${m.hidden} · checking ${m.checking} · stopped ${m.stopped || "-"}`;
+        else log(`message ${JSON.stringify(m)}`);
+        if (m.type === "discoverQueryId") return null;
+      },
+    },
+  };
+  document.cookie = "ct0=testtoken; path=/";
+  let calls = 0;
+  window.fetch = async (url, opts) => {
+    calls++;
+    const u = new URL(url, location.href);
+    const name = JSON.parse(u.searchParams.get("variables")).screenName;
+    const check = $("#rate").checked ? 429 : $("#badQid").checked ? 404 : $("#signedOut").checked ? 403 : 200;
+    log(`fetch #${calls} ${u.pathname.split("/")[4]} @${name} csrf=${opts.headers["x-csrf-token"]} → ${check}`);
+    await new Promise((r) => setTimeout(r, 120));
+    const headers = check === 429 ? { "x-rate-limit-reset": String(Math.floor(Date.now() / 1000) + 30) } : {};
+    if (check !== 200) return new Response("{}", { status: check, headers });
+    const known = name in COUNTRY;
+    const body = known
+      ? { data: { user_result_by_screen_name: { result: { core: { screen_name: name }, about_profile: COUNTRY[name] ? { account_based_in: COUNTRY[name] } : {} } } } }
+      : { data: {} };
+    return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  };
+
+  // ---------- fake timeline ----------
+  const $ = (s) => document.querySelector(s);
+  const handles = Object.keys(COUNTRY).filter((h) => h !== "me");
+  let n = 0;
+  function post(h, quote) {
+    n++;
+    const cell = document.createElement("div");
+    cell.dataset.testid = "cellInnerDiv";
+    cell.innerHTML = `<article data-testid="tweet">
+      <div data-testid="User-Name"><div><a href="/${h}"><span>${h.replace("_", " ")}</span></a></div>
+        <div><a href="/${h}">@${h}</a> · <a href="/${h}/status/${1000 + n}"><time>${n}h</time></a></div></div>
+      <div>Post number ${n} from @${h}. Lorem ipsum dolor sit amet.</div>
+      ${quote ? `<div class="quote" role="link"><div data-testid="User-Name"><div><a href="/${quote}"><span>${quote}</span></a></div><div><a href="/${quote}">@${quote}</a></div></div><div>Quoted post</div></div>` : ""}
+    </article>`;
+    $("#timeline").append(cell);
+  }
+  handles.forEach((h, i) => post(h, i === 1 ? "elonmusk" : null));
+  post("me");
+  post("unknown_account");
+  $("#more").onclick = () => { for (let i = 0; i < 5; i++) post(handles[(n + i) % handles.length]); };
+  $("#apply").onclick = () => chrome.storage.local.set({ settings: {
+    mode: $("#mode").value, countries: $("#countries").value.split(",").map((s) => s.trim()).filter(Boolean),
+    unknown: $("#unknown").value, hideStyle: $("#hideStyle").value, enabled: $("#enabled").checked, showTags: $("#showTags").checked,
+    allow: [],
+  } });
+</script>
+<script src="../src/shared/countries.js"></script>
+<script src="../src/shared/rules.js"></script>
+<script src="../src/content.js"></script>
+</body>
+</html>

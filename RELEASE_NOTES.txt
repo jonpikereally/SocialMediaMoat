@@ -1,0 +1,1 @@
+First release: hides X posts from accounts based outside the countries you pick, using X's own "Account based in" info.

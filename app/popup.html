@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Social Media Moat</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Social Media Moat</h1>
+    <label class="switch" title="Turn filtering on or off">
+      <input id="enabled" type="checkbox"><span class="track"></span><span class="sr">Filter posts</span>
+    </label>
+  </header>
+
+  <div id="banners"></div>
+
+  <main>
+    <section class="card" id="tabCard">
+      <div class="big"><span id="hiddenCount">0</span> <span id="hiddenLabel">posts hidden on this page</span></div>
+      <p class="muted" id="tabNote"></p>
+    </section>
+
+    <h2>Show posts</h2>
+    <fieldset class="choice">
+      <label class="check"><input type="radio" name="mode" value="only">
+        <span>Only from accounts based in these countries</span></label>
+      <label class="check"><input type="radio" name="mode" value="hide">
+        <span>From everywhere except these countries</span></label>
+    </fieldset>
+    <ul id="chips" class="chips"></ul>
+    <form id="addForm" class="row add">
+      <input id="addCountry" list="countryList" placeholder="Add a country…" autocomplete="off">
+      <button class="btn" type="submit">Add</button>
+      <datalist id="countryList"></datalist>
+    </form>
+    <p class="muted" id="addNote" hidden></p>
+
+    <h2>Seen on X <span class="muted" id="seenTotal"></span></h2>
+    <ul id="seen" class="seen"></ul>
+    <p id="noSeen" class="muted">Countries appear here as you scroll X. Click one to add or remove it.</p>
+
+    <details id="settings">
+      <summary>Settings</summary>
+      <fieldset class="choice">
+        <legend>Accounts X shows no country for</legend>
+        <label class="check"><input type="radio" name="unknown" value="show"><span>Show their posts</span></label>
+        <label class="check"><input type="radio" name="unknown" value="hide"><span>Hide their posts</span></label>
+      </fieldset>
+      <fieldset class="choice">
+        <legend>Hidden posts</legend>
+        <label class="check"><input type="radio" name="hideStyle" value="bar">
+          <span>Leave a thin strip<br><span class="muted">"Hidden post from @name · 🇺🇸 United States", with a Show button.</span></span></label>
+        <label class="check"><input type="radio" name="hideStyle" value="remove">
+          <span>Remove them completely</span></label>
+      </fieldset>
+      <label class="check"><input id="showTags" type="checkbox">
+        <span>Show each account's country next to its name</span></label>
+      <label class="field">Always show these accounts <span class="muted">(one @handle per line)</span>
+        <textarea id="allow" rows="3" placeholder="@someone"></textarea>
+      </label>
+
+      <h3>Saved countries</h3>
+      <p class="muted">Remembering where <strong id="total">0</strong> accounts are based, so each one is looked up at most once a month. Stored in this browser only.</p>
+      <div class="row">
+        <button class="btn danger" id="forget">Forget looked-up countries</button>
+      </div>
+      <p id="dataResult" class="muted"></p>
+
+      <h3>Updates</h3>
+      <p class="muted" id="versionLine"></p>
+      <button class="btn" id="checkUpdates">Check for Updates…</button>
+      <div id="updateResult"></div>
+      <label class="field">Update source <span class="muted">(leave empty for the built-in GitHub feed)</span>
+        <input id="updateSource" type="url" placeholder="https://…/latest.json">
+      </label>
+      <label class="field">X lookup query id <span class="muted">(advanced; leave empty unless told otherwise)</span>
+        <input id="queryId" type="text" placeholder="found automatically">
+      </label>
+      <p><a id="ghLink" target="_blank">Social Media Moat on GitHub</a> · <a id="errLink" target="_blank">Error code list</a></p>
+    </details>
+  </main>
+  <script src="../src/shared/countries.js"></script>
+  <script src="../src/shared/rules.js"></script>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
