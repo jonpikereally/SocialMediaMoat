@@ -49,7 +49,7 @@ then retry with the new id. Also offer an advanced setting to paste an id by han
 RATE LIMITS (the hardest part)
 X allows only a limited number of these lookups in a short time. So:
 - Cache every answer in chrome.storage.local, one key per account: "c:<handle lower case>" =
-  { c: country or null, t: when checked }. Re-check after 30 days (3 days if null). Prune entries older
+  { c: country or null, t: when checked, gone: 1 if X returned no user }. Re-check after 30 days (3 days if null). Prune entries older
   than 60 days once a day.
 - Look up one account at a time, about 400 ms apart, choosing accounts whose posts are on screen first.
 - On HTTP 429, or when the x-rate-limit-remaining header is "0", read x-rate-limit-reset (Unix seconds),
@@ -94,7 +94,11 @@ WHAT I SEE ON X
 - Hidden posts become a thin strip: "Hidden post from @handle · 🇺🇸 United States" with a "Show" button
   that reveals that one post until the page reloads. Optional setting: remove hidden posts completely.
 - A small pill next to each author's name with a flag and the country, e.g. "🇨🇦 Canada".
-  "…" while checking, "No country shown" when X has none, nothing while rate-limited.
+  When there's no country, the pill says why (dashed outline, hover text explains):
+  "❔ Country unknown" (X lists none), "❔ Account not found" (no user in the answer: suspended, renamed or
+  deleted), "⚠️ Couldn't check" (the lookup failed; hover shows the HTTP status, retried in 5 minutes),
+  "⏳ Country pending" (rate-limited; hover shows until when), "⚠️ Can't check (SM-202)" (lookups stopped;
+  hover gives the error code and error list link), and "…" while checking.
   Hover text: "Account based in Canada (from X's About this account)". Can be turned off.
 - Muted styling that suits X's light, dim and dark themes (grey text, X's blue for the button).
 - The toolbar badge shows how many posts are hidden on the current tab.
@@ -108,7 +112,8 @@ THE POPUP (about 380 px wide, light and dark mode)
 - My countries as removable chips (flag + name), and an input with autocomplete over every country name
   plus every value seen so far. Adding a name that isn't a known country is allowed, with a note that it
   must match X's label exactly (that's how regions such as "Europe" work).
-- "Seen on X": every country in the cache with its account count and a Shown/Hidden pill. Clicking a row
+- "Seen on X": every country in the cache with its account count and a Shown/Hidden pill, plus a
+  "❔ Country unknown" row counting accounts with none. Clicking a row
   adds it to or removes it from my list.
 - Settings: what to do with accounts that show no country, hide style, the repost toggle, country pills on/off,
   "always show" accounts (one @handle per line), how many accounts are remembered with a

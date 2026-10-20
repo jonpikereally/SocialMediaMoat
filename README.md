@@ -10,7 +10,7 @@ The country comes from X itself: every account's **About this account** page sho
 
 - **Only show these countries** (default: Canada), or **hide these countries**.
 - Hidden posts become a thin strip, "Hidden post from @name · 🇺🇸 United States", with a **Show** button. Or remove them completely.
-- A small country tag (🇨🇦 Canada) next to each name.
+- A small country tag (🇨🇦 Canada) next to each name. When there's no country it says why: **Country unknown** (X doesn't list one), **Account not found**, **Couldn't check** (the lookup failed; it retries), or **Country pending** (waiting out X's lookup limit). Hover for details.
 - **Reposts** are judged by who wrote the post. Turn on **Also hide reposts by filtered accounts** to also hide them when the account that reposted is filtered.
 - Accounts X shows no country for: show or hide them (Settings).
 - **Accounts you follow are always shown** (can be turned off). It learns who you follow from what X already loads as you browse; scroll your own Following list once to teach it quickly.

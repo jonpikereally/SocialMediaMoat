@@ -71,7 +71,7 @@ async function renderBanners(store) {
 
 const listed = (c) => settings.countries.some((x) => norm(x) === norm(c));
 
-function renderCountries(counts) {
+function renderCountries(counts, unknown) {
   $("#chips").innerHTML = settings.countries.map((c, i) =>
     `<li class="chip">${flagFor(c)} ${esc(c)} <button type="button" data-i="${i}" title="Remove ${esc(c)}" aria-label="Remove ${esc(c)}">×</button></li>`).join("")
     || `<li class="muted">${settings.mode === "only" ? "No countries yet, so every account with a known country is hidden." : "No countries yet, so nothing is hidden."}</li>`;
@@ -83,9 +83,9 @@ function renderCountries(counts) {
   $("#countryList").innerHTML = [...names].sort().map((n) => `<option value="${esc(n)}">`).join("");
 
   const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const total = rows.reduce((n, [, k]) => n + k, 0);
+  const total = rows.reduce((n, [, k]) => n + k, 0) + unknown;
   $("#seenTotal").textContent = total ? `(${total.toLocaleString()} accounts)` : "";
-  $("#noSeen").hidden = rows.length > 0;
+  $("#noSeen").hidden = total > 0;
   $("#seen").innerHTML = rows.slice(0, 40).map(([c, n]) => {
     const on = listed(c);
     const shown = settings.mode === "only" ? on : !on;
@@ -93,7 +93,9 @@ function renderCountries(counts) {
       title="${on ? "Remove from" : "Add to"} your list">
       <span>${flagFor(c)} ${esc(c)}</span><span class="n">${n.toLocaleString()}</span>
       <span class="state">${shown ? "Shown" : "Hidden"}</span></button></li>`;
-  }).join("");
+  }).join("") + (unknown ? `<li><div class="seen-row unknown" title="X doesn't list a country for these accounts (or they no longer exist). Settings → Accounts X shows no country for decides whether they're shown.">
+      <span>❔ Country unknown</span><span class="n">${unknown.toLocaleString()}</span>
+      <span class="state">${settings.unknown === "hide" ? "Hidden" : "Shown"}</span></div></li>` : "");
   for (const b of $("#seen").querySelectorAll("button")) b.onclick = () => {
     const c = b.dataset.c;
     const countries = listed(c) ? settings.countries.filter((x) => norm(x) !== norm(c)) : [...settings.countries, c];
@@ -126,11 +128,12 @@ async function render() {
   const store = await chrome.storage.local.get(null);
   settings = { ...DEFAULTS, ...(store.settings || {}) };
   const counts = new Map();
-  let total = 0;
+  let total = 0, unknown = 0;
   for (const [k, v] of Object.entries(store)) {
     if (!k.startsWith(KEY)) continue;
     total++;
     if (v && v.c) counts.set(v.c, (counts.get(v.c) || 0) + 1);
+    else unknown++;
   }
 
   $("#enabled").checked = settings.enabled;
@@ -152,7 +155,7 @@ async function render() {
   $("#ghLink").href = `https://github.com/${REPO}`;
   $("#errLink").href = ERROR_LIST_URL;
 
-  renderCountries(counts);
+  renderCountries(counts, unknown);
   await renderTab(store);
   await renderBanners(store);
 }

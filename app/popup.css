@@ -78,3 +78,6 @@ summary { cursor: pointer; font-weight: 600; color: var(--text-2); }
 #tabNote { margin: 0; }
 #tabNote .banner { margin: 0; }
 .follow-row { margin-top: 12px; }
+.seen-row.unknown { cursor: default; }
+.seen-row.unknown:hover { background: none; }
+.seen-row.unknown .state { color: var(--muted); background: var(--panel); border: 1px solid var(--line); }
