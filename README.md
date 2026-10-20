@@ -22,6 +22,8 @@ The country comes from X itself: every account's **About this account** page sho
 2. Open `chrome://extensions` (or `brave://extensions`), turn on **Developer mode**, click **Load unpacked** and pick the `SocialMediaMoat` folder.
 3. Open x.com while signed in.
 
+**Build it yourself:** [BUILD-WITH-CLAUDE.md](BUILD-WITH-CLAUDE.md) has a prompt you can give Claude (or another AI coding assistant) to rebuild the whole extension from scratch, plus a shorter one to install this version with an AI walking you through it.
+
 Updates: the popup tells you when a new version exists. Download it again (or `git pull`) and click ↻ on Social Media Moat in the extensions page.
 
 ## Good to know

@@ -11,3 +11,4 @@ Manifest V3 extension (Chrome/Brave/Edge). Plain JS, no build step, no dependenc
 - **Errors:** every user-facing error has an `SM-###` code in `src/shared/errors.js`, documented in `ERRORS.md`; `scripts/check-errors.sh` enforces this.
 - **Testing:** `node tests/rules.test.mjs`; `tests/fake-x.html` and `tests/popup-harness.html` over http. Lookups against real x.com can only be tested in a signed-in browser with the extension loaded.
 - **Releases:** bump `manifest.json` version + `RELEASE_NOTES.txt`, push to `main`; the Action builds `updates/`.
+- **`BUILD-WITH-CLAUDE.md`** holds a from-scratch rebuild prompt that restates the X details above (endpoint, headers, selectors, rate limits). When any of those change, update the prompt too.
