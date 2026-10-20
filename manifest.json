@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Social Media Moat",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Filters X (Twitter) posts by the country each account is based in, so you can see only posts from your country.",
   "homepage_url": "https://github.com/jonpikereally/SocialMediaMoat",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
@@ -12,6 +12,12 @@
   },
   "background": { "service_worker": "src/background.js", "type": "module" },
   "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*", "https://mobile.x.com/*"],
+      "js": ["src/page.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
     {
       "matches": ["https://x.com/*", "https://twitter.com/*", "https://mobile.x.com/*"],
       "js": ["src/shared/countries.js", "src/shared/rules.js", "src/content.js"],

@@ -38,6 +38,7 @@
     <label><input type="checkbox" id="hideReposts"> hide reposts</label><br>
     <button id="apply">Apply settings</button>
     <button id="more">Load 5 more posts</button><br>
+    <button id="timeline">X loads timeline (you follow @nytimes)</button><br>
     <label><input type="checkbox" id="rate"> X answers 429 (rate limit)</label><br>
     <label><input type="checkbox" id="badQid"> X answers 404 (query renamed)</label><br>
     <label><input type="checkbox" id="signedOut"> X answers 403 (signed out)</label><br>
@@ -82,10 +83,20 @@
     },
   };
   document.cookie = "ct0=testtoken; path=/";
+  document.cookie = "twid=" + encodeURIComponent("u=42") + "; path=/";
   let calls = 0;
   window.fetch = async (url, opts) => {
     calls++;
     const u = new URL(url, location.href);
+    if (u.pathname.endsWith("/HomeTimeline")) {
+      // What X's own timeline answer looks like, trimmed: users carry relationship_perspectives.
+      log("fetch HomeTimeline (page's own request)");
+      const user = (h, following) => ({ __typename: "User", core: { screen_name: h }, relationship_perspectives: { following } });
+      return new Response(JSON.stringify({ data: { home: { instructions: [{ entries: [
+        { content: { itemContent: { tweet_results: { result: { core: { user_results: { result: user("nytimes", true) } } } } } } },
+        { content: { itemContent: { tweet_results: { result: { core: { user_results: { result: user("bbcnews", false) } } } } } } },
+      ] }] } } }), { status: 200 });
+    }
     const name = JSON.parse(u.searchParams.get("variables")).screenName;
     const check = $("#rate").checked ? 429 : $("#badQid").checked ? 404 : $("#signedOut").checked ? 403 : 200;
     log(`fetch #${calls} ${u.pathname.split("/")[4]} @${name} csrf=${opts.headers["x-csrf-token"]} → ${check}`);
@@ -121,6 +132,7 @@
   post("cbcnews", null, "torontostar");
   post("me");
   post("unknown_account");
+  $("#timeline").onclick = () => fetch("/i/api/graphql/abc/HomeTimeline");
   $("#more").onclick = () => { for (let i = 0; i < 5; i++) post(handles[(n + i) % handles.length]); };
   $("#apply").onclick = () => chrome.storage.local.set({ settings: {
     mode: $("#mode").value, countries: $("#countries").value.split(",").map((s) => s.trim()).filter(Boolean),
@@ -128,6 +140,7 @@
     allow: [],
   } });
 </script>
+<script src="../src/page.js"></script>
 <script src="../src/shared/countries.js"></script>
 <script src="../src/shared/rules.js"></script>
 <script src="../src/content.js"></script>

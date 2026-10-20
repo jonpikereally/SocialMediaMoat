@@ -1,1 +1,1 @@
-New setting: Also hide reposts by filtered accounts. When on, a repost is hidden if the account that reposted it is from a filtered country, not just the post's author. The reposter's country also shows on the "reposted" line.
+New: Always show accounts I follow (on by default). Social Media Moat learns who you follow from what X already loads as you browse, so it costs no extra lookups. To teach it quickly, scroll through your own Following list. Follows are kept per X account.

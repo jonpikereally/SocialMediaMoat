@@ -78,6 +78,15 @@ FILTER RULES (put these in one pure function so they can be unit tested)
   of the URL), and handles in an "always show" list (accept "@name" or "name", any case).
 - Reposts are judged by the post's author. A setting "Also hide reposts by filtered accounts" (off by
   default) also hides a repost when the reposter would be hidden; only look reposters up when it's on.
+- Accounts I follow are always shown (setting, on by default). Learn who I follow for free from X's own
+  traffic: a content script with "world": "MAIN" and run_at document_start wraps XMLHttpRequest and fetch,
+  and in every /i/api/graphql/ answer finds objects with __typename "User" and reads core.screen_name
+  (or legacy.screen_name) and relationship_perspectives.following (or legacy.following). Also catch
+  /i/api/1.1/friendships/create.json and destroy.json (answer has screen_name) for follow/unfollow clicks.
+  It must not change requests or answers, and passes only [handle, true/false] pairs to the normal content
+  script with window.postMessage (buffer them until the content script says it's ready, since it loads
+  later). Store them per signed-in account (the twid cookie holds "u=<user id>"), so another account
+  in the same browser starts empty. Look up followed accounts last, since they're shown anyway.
 - Accounts with no country: follow the "no country" setting (show by default).
 - Not checked yet: show.
 
@@ -94,6 +103,7 @@ THE POPUP (about 380 px wide, light and dark mode)
 - On/off switch.
 - "N posts hidden on this page", plus a status line: checking N accounts / rate-limited until <time> /
   the current error.
+- An "Always show accounts I follow" switch with how many follows it knows so far.
 - Mode choice ("Only from accounts based in these countries" / "From everywhere except these countries").
 - My countries as removable chips (flag + name), and an input with autocomplete over every country name
   plus every value seen so far. Adding a name that isn't a known country is allowed, with a note that it
@@ -107,7 +117,7 @@ THE POPUP (about 380 px wide, light and dark mode)
 
 SETTINGS (chrome.storage.local "settings", with these defaults)
   enabled: true, mode: "only", countries: ["Canada"], unknown: "show", hideStyle: "bar",
-  showTags: true, hideReposts: false, allow: [], queryId: "", updateSource: ""
+  showTags: true, hideReposts: false, showFollowed: true, allow: [], queryId: "", updateSource: ""
 
 FLAGS
 Include a table of about 200 country names (in X's English spelling, plus common alternatives such as
@@ -137,7 +147,7 @@ TESTS
 - A Node test for the filter function (node tests/rules.test.mjs).
 - tests/fake-x.html: a fake dark-mode timeline using X's data-testid markup (including a quoted post and
   my own post) that mocks chrome.storage/runtime and window.fetch for AboutAccountQuery, with switches to
-  make the fake API answer 429 (with x-rate-limit-reset), 404 and 403, and a "load more posts" button.
+  make the page "load" a timeline answer that marks one account as followed, and make the fake API answer 429 (with x-rate-limit-reset), 404 and 403, and a "load more posts" button.
 - tests/popup-harness.html: loads the popup with mocked chrome APIs and a few hundred made-up cached
   accounts.
 Serve the folder with `python3 -m http.server` to open them. Run everything and fix what fails before

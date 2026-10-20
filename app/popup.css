@@ -77,3 +77,4 @@ summary { cursor: pointer; font-weight: 600; color: var(--text-2); }
 .seen-row.hidden .state { color: var(--muted); background: var(--panel); border: 1px solid var(--line); }
 #tabNote { margin: 0; }
 #tabNote .banner { margin: 0; }
+.follow-row { margin-top: 12px; }

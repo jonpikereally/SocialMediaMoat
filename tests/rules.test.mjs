@@ -36,3 +36,10 @@ assert.equal(flagFor("United Kingdom"), "🇬🇧");
 assert.equal(flagFor("Europe"), "🌐");
 assert.equal(norm(" @Jon_Pike "), "jon_pike");
 console.log("rules: all passed");
+// Followed accounts
+const follows = (h) => h === "friend";
+assert.equal(decide("friend", us, only, { follows }), "show", "followed account shown");
+assert.equal(decide("friend", us, { ...only, showFollowed: false }, { follows }), "hide", "unless the setting is off");
+assert.equal(decide("friend", undefined, only, { follows }), "show", "followed: shown before the lookup");
+assert.equal(decide("stranger", us, only, { follows }), "hide");
+console.log("follows: all passed");
