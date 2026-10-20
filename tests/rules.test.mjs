@@ -21,6 +21,16 @@ assert.equal(decide("bob", us, only, { own: "Bob" }), "show", "own posts");
 assert.equal(decide("bob", us, only, { pageOwner: "BOB" }), "show", "on their own profile");
 assert.equal(decide("a", us, { mode: "only", countries: [] }), "hide");
 assert.equal(decide("a", { c: "Europe" }, { mode: "only", countries: ["Europe"] }), "show", "regions match by name");
+// Reposts: judged by the author, plus the reposter when hideReposts is on.
+const recs = { local: ca, foreign: us };
+const look = (h) => recs[h];
+const { decidePost } = globalThis.SMRules;
+assert.deepEqual(decidePost("local", "foreign", look, only), { v: "show", by: "author" }, "toggle off: reposter ignored");
+assert.deepEqual(decidePost("local", "foreign", look, { ...only, hideReposts: true }), { v: "hide", by: "reposter" });
+assert.deepEqual(decidePost("foreign", "local", look, { ...only, hideReposts: true }), { v: "hide", by: "author" });
+assert.deepEqual(decidePost("local", "local", look, { ...only, hideReposts: true }), { v: "show", by: "author" });
+assert.deepEqual(decidePost("local", "newbie", look, { ...only, hideReposts: true }), { v: "pending", by: "author" });
+assert.deepEqual(decidePost("local", "foreign", look, { ...only, hideReposts: true }, { pageOwner: "foreign" }), { v: "show", by: "author" }, "on the reposter's own profile");
 assert.equal(flagFor("Canada"), "🇨🇦");
 assert.equal(flagFor("United Kingdom"), "🇬🇧");
 assert.equal(flagFor("Europe"), "🌐");

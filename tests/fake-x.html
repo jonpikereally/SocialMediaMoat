@@ -13,6 +13,8 @@
   [data-testid="User-Name"] a { color: inherit; text-decoration: none; }
   [data-testid="User-Name"] div:first-child { font-weight: 700; }
   [data-testid="User-Name"] div + div, time { color: #71767b; }
+  .ctx { display: flex; align-items: center; font-size: 13px; color: #71767b; margin-bottom: 4px; }
+  .ctx a { color: inherit; text-decoration: none; }
   .quote { border: 1px solid #2f3336; border-radius: 12px; padding: 8px 12px; margin-top: 8px; }
   aside { position: sticky; top: 0; align-self: start; padding: 12px; font-size: 13px; }
   aside button, aside select, aside input { font: inherit; margin: 2px 0; }
@@ -32,7 +34,8 @@
     Unknown <select id="unknown"><option>show</option><option>hide</option></select><br>
     Style <select id="hideStyle"><option>bar</option><option>remove</option></select><br>
     <label><input type="checkbox" id="enabled" checked> enabled</label>
-    <label><input type="checkbox" id="showTags" checked> tags</label><br>
+    <label><input type="checkbox" id="showTags" checked> tags</label>
+    <label><input type="checkbox" id="hideReposts"> hide reposts</label><br>
     <button id="apply">Apply settings</button>
     <button id="more">Load 5 more posts</button><br>
     <label><input type="checkbox" id="rate"> X answers 429 (rate limit)</label><br>
@@ -100,11 +103,12 @@
   const $ = (s) => document.querySelector(s);
   const handles = Object.keys(COUNTRY).filter((h) => h !== "me");
   let n = 0;
-  function post(h, quote) {
+  function post(h, quote, reposter) {
     n++;
     const cell = document.createElement("div");
     cell.dataset.testid = "cellInnerDiv";
     cell.innerHTML = `<article data-testid="tweet">
+      ${reposter ? `<div class="ctx"><a href="/${reposter}"><span data-testid="socialContext">${reposter} reposted</span></a></div>` : ""}
       <div data-testid="User-Name"><div><a href="/${h}"><span>${h.replace("_", " ")}</span></a></div>
         <div><a href="/${h}">@${h}</a> · <a href="/${h}/status/${1000 + n}"><time>${n}h</time></a></div></div>
       <div>Post number ${n} from @${h}. Lorem ipsum dolor sit amet.</div>
@@ -113,12 +117,14 @@
     $("#timeline").append(cell);
   }
   handles.forEach((h, i) => post(h, i === 1 ? "elonmusk" : null));
+  post("jon_pike", null, "nytimes");
+  post("cbcnews", null, "torontostar");
   post("me");
   post("unknown_account");
   $("#more").onclick = () => { for (let i = 0; i < 5; i++) post(handles[(n + i) % handles.length]); };
   $("#apply").onclick = () => chrome.storage.local.set({ settings: {
     mode: $("#mode").value, countries: $("#countries").value.split(",").map((s) => s.trim()).filter(Boolean),
-    unknown: $("#unknown").value, hideStyle: $("#hideStyle").value, enabled: $("#enabled").checked, showTags: $("#showTags").checked,
+    unknown: $("#unknown").value, hideStyle: $("#hideStyle").value, enabled: $("#enabled").checked, showTags: $("#showTags").checked, hideReposts: $("#hideReposts").checked,
     allow: [],
   } });
 </script>

@@ -138,6 +138,7 @@ async function render() {
     for (const r of document.querySelectorAll(`input[name="${name}"]`)) r.checked = r.value === settings[name];
   }
   $("#showTags").checked = settings.showTags;
+  $("#hideReposts").checked = settings.hideReposts;
   if (document.activeElement !== $("#allow")) $("#allow").value = settings.allow.map((h) => "@" + h).join("\n");
   $("#updateSource").value = settings.updateSource || "";
   $("#queryId").value = settings.queryId || "";
@@ -158,6 +159,7 @@ for (const name of ["mode", "unknown", "hideStyle"]) {
   for (const r of document.querySelectorAll(`input[name="${name}"]`)) r.onchange = (e) => save({ [name]: e.target.value }).then(render);
 }
 $("#showTags").onchange = (e) => save({ showTags: e.target.checked });
+$("#hideReposts").onchange = (e) => save({ hideReposts: e.target.checked });
 $("#allow").onchange = (e) => save({ allow: [...new Set(e.target.value.split(/[\s,]+/).map(norm).filter(Boolean))] });
 $("#updateSource").onchange = (e) => save({ updateSource: e.target.value.trim() });
 $("#queryId").onchange = (e) => save({ queryId: e.target.value.trim() });

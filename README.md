@@ -11,6 +11,7 @@ The country comes from X itself: every account's **About this account** page sho
 - **Only show these countries** (default: Canada), or **hide these countries**.
 - Hidden posts become a thin strip, "Hidden post from @name · 🇺🇸 United States", with a **Show** button. Or remove them completely.
 - A small country tag (🇨🇦 Canada) next to each name.
+- **Reposts** are judged by who wrote the post. Turn on **Also hide reposts by filtered accounts** to also hide them when the account that reposted is filtered.
 - Accounts X shows no country for: show or hide them (Settings).
 - **Always show** list for accounts you never want hidden. Your own posts, and anyone's posts while you're on their profile, are never hidden.
 - The popup lists every country it has seen on your timeline with a count. Click one to add or remove it.

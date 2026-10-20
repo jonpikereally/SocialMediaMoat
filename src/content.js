@@ -7,7 +7,7 @@
   if (window.__smmLoaded) return;
   window.__smmLoaded = true;
 
-  const { DEFAULTS, norm, decide, flagFor } = globalThis.SMRules;
+  const { DEFAULTS, norm, decidePost, flagFor } = globalThis.SMRules;
   const DEFAULT_QID = "XRqGa7EeokUU5kppkh13EA";
   // The public bearer token x.com's own web app sends with every API call.
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
@@ -50,6 +50,14 @@
     return null;
   }
 
+  // Reposts carry a "<name> reposted" line above the post: [data-testid="socialContext"]
+  // inside a link to the reposter's profile. ("Pinned" uses the same testid with no link.)
+  function reposterOf(article) {
+    const a = article.querySelector('[data-testid="socialContext"]')?.closest('a[href^="/"]');
+    const m = a && HANDLE_PATH.exec(a.getAttribute("href"));
+    return m ? m[1] : null;
+  }
+
   function postId(article) {
     const a = article.querySelector('a[href*="/status/"] time')?.closest("a");
     const m = a && /\/status\/(\d+)/.exec(a.getAttribute("href"));
@@ -66,11 +74,11 @@
 
   // ---------- drawing ----------
 
-  function tag(article, h) {
-    const name = article.querySelector('[data-testid="User-Name"]');
-    if (!name) return;
-    let el = name.querySelector(":scope > .smm-tag");
-    if (!settings.showTags || !settings.enabled) { el?.remove(); return; }
+  // Country pill appended inside `host` (the author's name row, or the repost line).
+  function tag(host, h) {
+    if (!host) return;
+    let el = host.querySelector(":scope > .smm-tag");
+    if (!h || !settings.showTags || !settings.enabled) { el?.remove(); return; }
     const r = mem.get(h);
     const text = !r ? (stopped || Date.now() < rlUntil ? "" : "…") : r.c ? `${flagFor(r.c)} ${r.c}` : "No country shown";
     const title = !r ? "Checking where this account is based" : r.c ? `Account based in ${r.c} (from X's About this account)` : "X doesn't show a country for this account";
@@ -78,7 +86,7 @@
     if (!el) {
       el = document.createElement("span");
       el.className = "smm-tag";
-      name.append(el);
+      host.append(el);
     }
     if (el.textContent !== text) el.textContent = text;
     if (el.title !== title) el.title = title;
@@ -89,13 +97,19 @@
     if (!handle) return null;
     const h = norm(handle);
     want(h);
+    // The reposter only matters (and is only looked up) when "hide reposts" is on.
+    const reposter = settings.enabled && settings.hideReposts ? reposterOf(article) : null;
+    const rh = reposter ? norm(reposter) : null;
+    if (rh) want(rh);
     const cell = article.closest('[data-testid="cellInnerDiv"]') || article.parentElement;
     const id = postId(article) || h;
-    let v = decide(h, mem.get(h), settings, { own: ownHandle(), pageOwner: pageOwner() });
+    let { v, by } = decidePost(h, rh, (x) => mem.get(x), settings, { own: ownHandle(), pageOwner: pageOwner() });
     if (v === "hide" && revealed.has(id)) v = "show";
-    tag(article, h);
+    tag(article.querySelector('[data-testid="User-Name"]'), h);
+    const context = article.querySelector('[data-testid="socialContext"]');
+    tag(context?.closest("a")?.parentElement || context?.parentElement, rh);
 
-    const state = v === "hide" ? `${settings.hideStyle}|${id}` : "";
+    const state = v === "hide" ? `${settings.hideStyle}|${id}|${by}` : "";
     if ((cell.dataset.smm || "") === state) return v;
     cell.querySelector(":scope > .smm-bar")?.remove();
     cell.classList.remove("smm-hide", "smm-remove");
@@ -104,11 +118,12 @@
       if (settings.hideStyle === "remove") {
         cell.classList.add("smm-remove");
       } else {
-        const c = mem.get(h)?.c;
+        const who = by === "reposter" ? reposter : handle;
+        const c = mem.get(norm(who))?.c;
         const bar = document.createElement("div");
         bar.className = "smm-bar";
         bar.innerHTML = `<span></span><button type="button">Show</button>`;
-        bar.firstChild.textContent = `Hidden post from @${handle} · ${c ? `${flagFor(c)} ${c}` : "no country shown"}`;
+        bar.firstChild.textContent = `${by === "reposter" ? "Hidden repost by" : "Hidden post from"} @${who} · ${c ? `${flagFor(c)} ${c}` : "no country shown"}`;
         bar.lastChild.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -324,6 +339,8 @@
       let dirty = false;
       for (const [k, { newValue }] of Object.entries(changes)) {
         if (k === "settings") {
+          // Turning "hide reposts" off must not leave reposter lookups queued.
+          if (!newValue?.hideReposts) queue.clear();
           settings = { ...DEFAULTS, ...(newValue || {}) };
           if (settings.queryId) qid = settings.queryId;
           dirty = true;
