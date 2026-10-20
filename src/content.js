@@ -12,11 +12,12 @@
   // The public bearer token x.com's own web app sends with every API call.
   const BEARER = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
   const FOUND_TTL = 30 * 864e5;   // re-check a known country after 30 days
-  const NONE_TTL = 3 * 864e5;     // re-check "no country shown" after 3 days
+  const NONE_TTL = 3 * 864e5;     // re-check "country unknown" after 3 days
   const GAP_MS = 400;             // between lookups
   const RETRY_MS = 5 * 60e3;      // after a failed lookup
   const HANDLE_PATH = /^\/([A-Za-z0-9_]{1,15})$/;
   const KEY = "c:";
+  const ERROR_LIST_URL = "https://github.com/jonpikereally/SocialMediaMoat/blob/main/ERRORS.md";
 
   let settings = { ...DEFAULTS };
   let qid = DEFAULT_QID;
@@ -26,7 +27,7 @@
   const mem = new Map();          // handle → { c, t } once loaded from storage or X
   const loading = new Set();      // handles being read from storage
   const queue = new Set();        // handles waiting for an X lookup
-  const failedAt = new Map();     // handle → time of last failed lookup
+  const failedAt = new Map();     // handle → { t, why } of the last failed lookup
   const revealed = new Set();     // posts the user clicked "Show" on, this tab only
   let follows = new Map();        // handle → true, for the signed-in account (see src/page.js)
   let followsViewer = null;
@@ -84,22 +85,36 @@
   // ---------- drawing ----------
 
   // Country pill appended inside `host` (the author's name row, or the repost line).
+  // Why an account has no country tag yet, as [text, hover text], or null.
+  function missing(h) {
+    const r = mem.get(h);
+    if (r && !r.c && r.gone) return ["❔ Account not found", "X couldn't find this account, so it has no country. It may be suspended, renamed or deleted."];
+    if (r && !r.c) return ["❔ Country unknown", "X doesn't list where this account is based: its About this account page has no country."];
+    if (r) return null;
+    if (stopped) return [`⚠️ Can't check (${stopped})`, `Couldn't look up where this account is based: error ${stopped}. Look this code up on the Social Media Moat error list: ${ERROR_LIST_URL}`];
+    if (Date.now() < rlUntil) return ["⏳ Country pending", `X is limiting lookups until ${new Date(rlUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. This account will be checked after that.`];
+    const f = failedAt.get(h);
+    if (f && Date.now() - f.t < RETRY_MS) return ["⚠️ Couldn't check", `Looking up where this account is based failed: ${f.why}. It will be tried again in a few minutes.`];
+    return ["…", "Checking where this account is based"];
+  }
+
+  // Country pill appended inside `host` (the author's name row, or the repost line).
   function tag(host, h) {
     if (!host) return;
     let el = host.querySelector(":scope > .smm-tag");
     if (!h || !settings.showTags || !settings.enabled) { el?.remove(); return; }
     const r = mem.get(h);
-    const text = !r ? (stopped || Date.now() < rlUntil ? "" : "…") : r.c ? `${flagFor(r.c)} ${r.c}` : "No country shown";
-    const title = !r ? "Checking where this account is based" : r.c ? `Account based in ${r.c} (from X's About this account)` : "X doesn't show a country for this account";
-    if (!text) { el?.remove(); return; }
+    const [text, title] = r?.c ? [`${flagFor(r.c)} ${r.c}`, `Account based in ${r.c} (from X's About this account)`] : missing(h);
+    const cls = r?.c ? "smm-tag" : "smm-tag smm-tag-missing";
     if (!el) {
       el = document.createElement("span");
-      el.className = "smm-tag";
       host.append(el);
     }
+    if (el.className !== cls) el.className = cls;
     if (el.textContent !== text) el.textContent = text;
     if (el.title !== title) el.title = title;
   }
+
 
   function render(article) {
     const handle = handleOf(article);
@@ -132,7 +147,7 @@
         const bar = document.createElement("div");
         bar.className = "smm-bar";
         bar.innerHTML = `<span></span><button type="button">Show</button>`;
-        bar.firstChild.textContent = `${by === "reposter" ? "Hidden repost by" : "Hidden post from"} @${who} · ${c ? `${flagFor(c)} ${c}` : "no country shown"}`;
+        bar.firstChild.textContent = `${by === "reposter" ? "Hidden repost by" : "Hidden post from"} @${who} · ${c ? `${flagFor(c)} ${c}` : mem.get(norm(who))?.gone ? "account not found" : "country unknown"}`;
         bar.lastChild.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -201,7 +216,7 @@
   }
 
   function enqueue(h) {
-    if (Date.now() - (failedAt.get(h) || 0) < RETRY_MS) return;
+    if (Date.now() - (failedAt.get(h)?.t || 0) < RETRY_MS) return;
     queue.add(h);
     pump();
   }
@@ -272,7 +287,7 @@
         },
       });
     } catch (e) {
-      failedAt.set(h, Date.now());
+      failedAt.set(h, { t: Date.now(), why: `network error (${e.message})` });
       return;
     }
     const reset = Number(res.headers.get("x-rate-limit-reset")) * 1000;
@@ -294,24 +309,25 @@
       return;
     }
     if (!res.ok) {
-      failedAt.set(h, Date.now());
+      failedAt.set(h, { t: Date.now(), why: `X answered HTTP ${res.status}` });
       return;
     }
     let data;
     try {
       data = await res.json();
     } catch (e) {
-      failedAt.set(h, Date.now());
+      failedAt.set(h, { t: Date.now(), why: "X's answer was unreadable (error SM-205)" });
       report("SM-205", `${h}: ${e.message}`);
       return;
     }
     // A missing user (suspended, renamed, deleted) is stored as "no country".
     const user = data?.data?.user_result_by_screen_name?.result;
     const back = user?.core?.screen_name;
-    if (back && norm(back) !== h) { failedAt.set(h, Date.now()); return; }
+    if (back && norm(back) !== h) { failedAt.set(h, { t: Date.now(), why: `X answered about @${back} instead` }); return; }
     const f = user?.relationship_perspectives?.following ?? user?.legacy?.following;
     if (typeof f === "boolean") learnFollows([[h, f]]);
     const rec = { c: user?.about_profile?.account_based_in || null, t: Date.now() };
+    if (!user) rec.gone = 1;
     mem.set(h, rec);
     try {
       await chrome.storage.local.set({ [KEY + h]: rec });

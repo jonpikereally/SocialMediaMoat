@@ -98,6 +98,7 @@
       ] }] } } }), { status: 200 });
     }
     const name = JSON.parse(u.searchParams.get("variables")).screenName;
+    if (name === "brokenlookup") { log(`fetch @${name} → 500`); return new Response("oops", { status: 500 }); }
     const check = $("#rate").checked ? 429 : $("#badQid").checked ? 404 : $("#signedOut").checked ? 403 : 200;
     log(`fetch #${calls} ${u.pathname.split("/")[4]} @${name} csrf=${opts.headers["x-csrf-token"]} → ${check}`);
     await new Promise((r) => setTimeout(r, 120));
@@ -130,6 +131,7 @@
   handles.forEach((h, i) => post(h, i === 1 ? "elonmusk" : null));
   post("jon_pike", null, "nytimes");
   post("cbcnews", null, "torontostar");
+  post("brokenlookup");
   post("me");
   post("unknown_account");
   $("#timeline").onclick = () => fetch("/i/api/graphql/abc/HomeTimeline");
