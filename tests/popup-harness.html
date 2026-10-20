@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Popup harness</title>
+<link rel="stylesheet" href="../app/popup.css">
+</head>
+<body>
+<!-- Loads app/popup.html's body with mocked chrome.* APIs and made-up saved countries.
+     Add ?rl to show the rate-limit note, ?err to show an error banner, ?stopped for SM-202. -->
+<script>
+  const q = new URLSearchParams(location.search);
+  const now = Date.now();
+  const sample = { Canada: 412, "United States": 268, "United Kingdom": 61, India: 44, Japan: 19, France: 12, Europe: 9, Germany: 7 };
+  const store = { settings: { countries: ["Canada"] } };
+  let i = 0;
+  for (const [c, n] of Object.entries(sample)) for (let k = 0; k < n; k++) store[`c:user${i++}`] = { c, t: now };
+  for (let k = 0; k < 30; k++) store[`c:user${i++}`] = { c: null, t: now };
+  if (q.has("rl")) store.rl = now + 11 * 60e3;
+  if (q.has("err")) store.errors = [{ code: "SM-203", details: "HTTP 404 from AboutAccountQuery", t: now }];
+  const session = { "tab:1": { hidden: 37, checking: q.has("rl") ? 6 : 3, stopped: q.has("stopped") ? "SM-202" : null } };
+  const pick = (src, k) => k == null ? { ...src } : Object.fromEntries([].concat(k).filter((x) => x in src).map((x) => [x, src[x]]));
+  window.chrome = {
+    storage: {
+      local: { get: async (k) => pick(store, k), set: async (o) => Object.assign(store, o), remove: async (k) => [].concat(k).forEach((x) => delete store[x]) },
+      session: { get: async (k) => pick(session, k) },
+    },
+    runtime: {
+      getManifest: () => ({ version: "1.0.0" }),
+      sendMessage: async (m) => m.type === "checkUpdates" ? { checkedAt: now, current: "1.0.0", latest: "1.0.0", available: false } : null,
+    },
+    tabs: { query: async () => [{ id: 1, url: "https://x.com/home" }] },
+  };
+  (async () => {
+    const html = await (await fetch("../app/popup.html")).text();
+    const body = new DOMParser().parseFromString(html, "text/html").body;
+    for (const s of body.querySelectorAll("script")) s.remove();
+    document.body.append(...body.childNodes);
+    for (const src of ["../src/shared/countries.js", "../src/shared/rules.js"]) {
+      await new Promise((r) => document.head.append(Object.assign(document.createElement("script"), { src, onload: r })));
+    }
+    await import("../app/popup.js");
+  })();
+</script>
+</body>
+</html>
