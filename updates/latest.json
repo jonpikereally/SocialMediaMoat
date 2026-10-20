@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "url": "SocialMediaMoat.zip",
-  "notes": "New: Always show accounts I follow (on by default). Social Media Moat learns who you follow from what X already loads as you browse, so it costs no extra lookups. To teach it quickly, scroll through your own Following list. Follows are kept per X account."
+  "notes": "When an account has no country, its tag now says why: Country unknown (X doesn't list one), Account not found, Couldn't check (the lookup failed and will be retried), Country pending (waiting out X's lookup limit) or Can't check with an error code. Hover for details. The popup's Seen on X list also counts accounts with no country."
 }
